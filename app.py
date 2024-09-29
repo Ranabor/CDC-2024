@@ -41,6 +41,9 @@ ax.legend()
 
 st.pyplot(fig)
 
+airports = flight_stats['airport_2'].unique()
+selected_airport = st.selectbox('Select Airport:', airports)
+selected_airport2 = st.selectbox('Select Airport:', airports)
 
 st.title("Basic Streamlit App")
 
