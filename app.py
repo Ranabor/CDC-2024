@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -20,13 +19,20 @@ colors = {
     'CLT': '#C2F4A3',  # Pastel Lime Green
     'MIA': '#A3F4C2'   # Pastel Mint
 }
-specific_aiports = grouped_flight_stats[np.isin(grouped_flight_stats["airport_2"], airports)]
-specific_aiports = specific_aiports[(specific_aiports['Year'] > 1995) & ~np.isin(specific_aiports["Year"], [2020, 2021, 2024])]
-specific_aiports = specific_aiports.pivot(index='Year', columns='airport_2', values='passengers').fillna(0)
+specific_airports = grouped_flight_stats[np.isin(grouped_flight_stats["airport_2"], airports)]
+specific_airports = specific_airports[(specific_airports['Year'] > 1995) & ~np.isin(specific_airports["Year"], [2020, 2021, 2024])]
+specific_airports = specific_airports.pivot(index='Year', columns='airport_2', values='passengers').fillna(0)
+
+min_year = int(specific_airports.index.min())
+max_year = int(specific_airports.index.max())
+
+selected_years = st.slider('Select Year Range:', min_year, max_year, (min_year, max_year))
+
+filtered_airports = specific_airports.loc[selected_years[0]:selected_years[1]]
 
 fig, ax = plt.subplots()
-for airport in specific_aiports.columns:
-    ax.plot(specific_aiports.index, specific_aiports[airport], marker='o', label=airport, color=colors.get(airport, 'black'))
+for airport in filtered_airports.columns:
+    ax.plot(filtered_airports.index, filtered_airports[airport], marker='o', label=airport, color=colors.get(airport, 'black'))
 
 ax.set_xlabel('Year')
 ax.set_ylabel('Passengers')
