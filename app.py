@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from PIL import Image
 st.title("Airport Traffic Outbound Passenger Overview")
-image = Image.open('./data/mapAirport.png')
+image = Image.open('./mapAirport.png')
 st.image(image, caption='Airport Map', use_column_width=True)
 
 st.title("Passenger Inbound Traffic per Major Airport over Time")
