@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from PIL import Image
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_percentage_error
 st.title("Airport Traffic Outbound Passenger Overview")
 image = Image.open('./mapAirport.png')
 st.image(image, caption='Airport Map', use_column_width=True)
@@ -83,9 +88,81 @@ selected_years = st.slider('Select Year Range:', min_year, max_year, (min_year, 
 
 filtered_airports = df_relevant.loc[selected_years[0]:selected_years[1]]
 
-airports = np.sort(get_top_n_airports(100))
-selected_airport = st.selectbox('Select Airport 1:', airports, key='airport_1')
-selected_airport2 = st.selectbox('Select Airport 2:', airports[1:], key='airport_2')
+airports = np.sort(get_top_n_airports(100)).tolist()
+selected_airport = st.selectbox('Select Airport 1:', airports, key='airport_1', index=airports.index('SFO'))
+selected_airport2 = st.selectbox('Select Airport 2:', airports[1:], key='airport_2', index=airports.index('LAX') + 1)
 print([selected_airport, selected_airport2], selected_years[0], selected_years[1] + 1)
 fig = generate_traffic_graph([selected_airport, selected_airport2], selected_years[0], selected_years[1] + 1, inbound=inbound)
+st.pyplot(fig)
+
+agg_methods = {
+    'passengers': 'sum'
+}
+
+def weighted_average(x):
+    weights = df.loc[x.index, "passengers"]
+    if sum(weights) == 0:
+        weights = [1 for _ in range(len(weights))]
+    return np.average(x, weights=weights)
+
+
+for col in ['nsmiles','fare','large_ms','fare_lg','lf_ms','fare_low']:
+    agg_methods[col] = weighted_average
+
+def sort_group(group):
+    group = group[(group['Year'] > 1995) & ~np.isin(group["Year"], [2020, 2021, 2024])]
+    group = group.sort_values(by=['Year', 'quarter'])
+    return group
+
+df = df.drop(columns=['Geocoded_City1','Geocoded_City2'])
+df = df.dropna().reset_index()
+inbounds = df.groupby(['airport_2', 'Year', 'quarter']).agg(agg_methods).reset_index().groupby(['airport_2']).apply(sort_group)
+inbounds = inbounds.rename(columns={'passengers': 'inbound_passengers', "airport_2": "inbound_ap"})
+
+def linreg(airport, color):
+    X = inbounds.reset_index()
+    airport_data = X.groupby(['inbound_ap']).get_group(airport)
+
+    X_train, y_train, X_test, y_test = airport_data[airport_data['Year'] < 2017], airport_data[airport_data['Year'] < 2017]['inbound_passengers'], \
+        airport_data[airport_data['Year'] >= 2017], airport_data[airport_data['Year'] >= 2017]['inbound_passengers']
+
+    X_train, y_train, X_test, y_test = X_train.reset_index(), y_train.reset_index(), X_test.reset_index(), y_test.reset_index()
+    
+    model = LinearRegression()
+    model.fit(X_train.drop(columns=['inbound_passengers', 'inbound_ap', 'airport_2']), y_train)
+
+    y_pred = model.predict(X_test.drop(columns=['inbound_passengers', 'inbound_ap', 'airport_2']))
+    
+    mape = mean_absolute_percentage_error(y_test, y_pred)
+    mape.item()
+
+    X_train['date'] = X_train["Year"].astype(str).str.slice(2) + "q" + X_train["quarter"].astype(str)
+    X_test['date'] = X_test["Year"].astype(str).str.slice(2) + "q" + X_test["quarter"].astype(str)
+    
+    airport_indices = list([X_test[X_test['inbound_ap'] == a].index for a in [airport]][0])
+    airport_indices_train = list([X_train[X_train['inbound_ap'] == a].index for a in [airport]][0])
+    
+    # plt.plot(pd.concat([X_train.iloc[airport_indices_train]['date'], X_test.iloc[airport_indices]['date']]), 
+    #          pd.concat([y_train.iloc[airport_indices_train]['inbound_passengers'], y_test.iloc[airport_indices]['inbound_passengers']]), 
+    #          color=color, label=airport)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(pd.concat([X_train.iloc[airport_indices_train]['date']]), 
+             pd.concat([y_train.iloc[airport_indices_train]['inbound_passengers']]), 
+             color=color, label=airport)
+    # ax.plot(X_test.iloc[airport_indices]['date'], y_pred[airport_indices][:, 1], color=color, linestyle='dashed')
+
+    ax.set_xlabel('Year + Quarter')
+    ax.set_ylabel('Inbound Passengers')
+    ax.set_title('Inbound Passengers across time')
+    ax.axvline(x=X_train['date'].iloc[-1], color='black', linestyle=':', label='Prediction Start')
+
+    ax.tick_params(left=True, right=False, labelleft=True, labelbottom=False, bottom=True) 
+    return fig
+
+st.title(f"Inbound Passengers Prediction {selected_airport}")
+fig = linreg(selected_airport, 'blue')
+st.pyplot(fig)
+
+st.title(f"Inbound Passengers Prediction {selected_airport2}")
+fig = linreg(selected_airport2, 'blue')
 st.pyplot(fig)
