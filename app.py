@@ -149,7 +149,7 @@ def linreg(airport, color):
     ax.plot(pd.concat([X_train.iloc[airport_indices_train]['date']]), 
              pd.concat([y_train.iloc[airport_indices_train]['inbound_passengers']]), 
              color=color, label=airport)
-    # ax.plot(X_test.iloc[airport_indices]['date'], y_pred[airport_indices][:, 1], color=color, linestyle='dashed')
+    ax.plot(X_test.iloc[airport_indices]['date'], y_pred[airport_indices][:, 1], color=color, linestyle='dashed')
 
     ax.set_xlabel('Year + Quarter')
     ax.set_ylabel('Inbound Passengers')
@@ -164,5 +164,5 @@ fig = linreg(selected_airport, 'blue')
 st.pyplot(fig)
 
 st.title(f"Inbound Passengers Prediction {selected_airport2}")
-fig = linreg(selected_airport2, 'blue')
+fig = linreg(selected_airport2, 'red')
 st.pyplot(fig)
